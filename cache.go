@@ -1,6 +1,7 @@
 package httpcache
 
 import (
+	"io"
 	"net/http"
 )
 
@@ -25,7 +26,7 @@ func (k KeyerFunc) Key(req *http.Request) string {
 }
 
 type Storer interface {
-	Get(key string) (*http.Response, bool)
-	Put(key string, resp *http.Response)
+	Get(key string) (io.Reader, bool)
+	Put(key string) (io.WriteCloser, bool)
 	Del(key string)
 }

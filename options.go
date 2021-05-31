@@ -12,8 +12,7 @@ type option struct {
 	keyer    Keyer
 	storer   Storer
 
-	muts   sync.Map
-	noSync bool
+	muts sync.Map
 }
 
 func (o *option) init(options []Option) {

@@ -3,7 +3,6 @@ package httpcache
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 )
@@ -30,10 +29,30 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return r.base.RoundTrip(req)
 	}
 	key := r.keyer.Key(req)
-	if !r.noSync {
-		var mutex sync.RWMutex
-		mut, _ := r.muts.LoadOrStore(key, &mutex)
-		rmut := mut.(*sync.RWMutex)
+
+	data, ok := r.storer.Get(key)
+	if ok {
+		resp, err := unmarshalResponse(data)
+		if err == nil {
+			return resp, nil
+		}
+	}
+
+	var mutex sync.RWMutex
+	mut, ok := r.muts.LoadOrStore(key, &mutex)
+	rmut := mut.(*sync.RWMutex)
+	if ok {
+		rmut.RLock()
+		defer rmut.RUnlock()
+		data, ok := r.storer.Get(key)
+		if ok {
+			resp, err := unmarshalResponse(data)
+			if err == nil {
+				return resp, nil
+			}
+		}
+		return r.base.RoundTrip(req)
+	} else {
 		rmut.Lock()
 		defer func() {
 			rmut.Unlock()
@@ -41,25 +60,30 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		}()
 	}
 
-	resp, ok := r.storer.Get(key)
-	if ok {
-		return resp, nil
-	}
-
 	resp, err := r.base.RoundTrip(req)
 	if err != nil {
 		return resp, err
 	}
 
-	content, err := ioutil.ReadAll(resp.Body)
+	buffer := getBuffer()
+	_, err = buffer.ReadFrom(resp.Body)
 	if err != nil {
+		putBuffer(buffer)
 		return resp, err
 	}
 	resp.Body.Close()
 
-	buf := bytes.NewReader(content)
-	resp.Body = ioutil.NopCloser(buf)
-	r.storer.Put(key, resp)
-	buf.Seek(0, io.SeekStart)
+	if buf, ok := r.storer.Put(key); ok {
+		resp.Body = io.NopCloser(bytes.NewBuffer(buffer.Bytes()))
+		err = marshalResponse(resp, buf)
+		buf.Close()
+	}
+	resp.Body = &readerWithClose{
+		Reader: buffer,
+		close: func() error {
+			putBuffer(buffer)
+			return nil
+		},
+	}
 	return resp, nil
 }

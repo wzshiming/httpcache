@@ -1,7 +1,7 @@
 package httpcache
 
 import (
-	"net/http"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -12,46 +12,46 @@ func DirectoryStorer(dir string) Directory {
 	return Directory(dir)
 }
 
-func (f Directory) Get(key string) (*http.Response, bool) {
-	path := filepath.Join(string(f), key)
-	data, err := os.ReadFile(path)
+func (d Directory) Get(key string) (io.Reader, bool) {
+	path := filepath.Join(string(d), key)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, false
 	}
-	resp, err := UnmarshalResponse(data)
-	if err != nil {
-		return nil, false
-	}
-	return resp, true
+	return &autoCloser{
+		auto: f,
+	}, true
 }
 
-func (f Directory) Put(key string, resp *http.Response) {
-	path := filepath.Join(string(f), key)
-	data, err := MarshalResponse(resp)
-	if err != nil {
-		return
-	}
+func (d Directory) Put(key string) (io.WriteCloser, bool) {
+	path := filepath.Join(string(d), key)
 	os.MkdirAll(filepath.Dir(path), 0777)
-	err = writeToCompletion(path, data, 0666)
+	w, err := writeToCompletion(path, 0666)
 	if err != nil {
-		return
+		return nil, false
 	}
+	return w, true
 }
 
-func (f Directory) Del(key string) {
-	path := filepath.Join(string(f), key)
+func (d Directory) Del(key string) {
+	path := filepath.Join(string(d), key)
 	os.Remove(path)
 }
 
-func writeToCompletion(path string, data []byte, mode os.FileMode) error {
+func writeToCompletion(path string, mode os.FileMode) (io.WriteCloser, error) {
 	tmp := path + ".tmp"
-	err := os.WriteFile(tmp, data, mode)
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = os.Rename(tmp, path)
-	if err != nil {
-		return err
-	}
-	return nil
+	return &writeWithClose{
+		Writer: f,
+		close: func() error {
+			err := f.Close()
+			if err != nil {
+				return err
+			}
+			return os.Rename(tmp, path)
+		},
+	}, nil
 }

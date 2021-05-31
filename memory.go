@@ -1,7 +1,8 @@
 package httpcache
 
 import (
-	"net/http"
+	"bytes"
+	"io"
 	"sync"
 )
 
@@ -13,26 +14,31 @@ type Memory struct {
 	m sync.Map
 }
 
-func (m *Memory) Get(key string) (*http.Response, bool) {
+func (m *Memory) Get(key string) (io.Reader, bool) {
 	val, ok := m.m.Load(key)
 	if !ok {
 		return nil, false
 	}
-	resp, err := UnmarshalResponse(val.([]byte))
-	if err != nil {
-		return nil, false
-	}
-	return resp, true
+	return bytes.NewBuffer(val.(*bytes.Buffer).Bytes()), true
 }
 
-func (m *Memory) Put(key string, resp *http.Response) {
-	data, err := MarshalResponse(resp)
-	if err != nil {
-		return
-	}
-	m.m.Store(key, data)
+func (m *Memory) Put(key string) (io.WriteCloser, bool) {
+	buffer := getBuffer()
+	return &writeWithClose{
+		Writer: buffer,
+		close: func() error {
+			val, ok := m.m.LoadOrStore(key, buffer)
+			if ok {
+				putBuffer(val.(*bytes.Buffer))
+			}
+			return nil
+		},
+	}, true
 }
 
 func (m *Memory) Del(key string) {
-	m.m.Delete(key)
+	val, ok := m.m.LoadAndDelete(key)
+	if ok {
+		putBuffer(val.(*bytes.Buffer))
+	}
 }

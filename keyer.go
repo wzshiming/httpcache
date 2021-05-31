@@ -26,24 +26,27 @@ func JointKeyer(keyers ...Keyer) Keyer {
 	})
 }
 
-func HashKeyer(f func(req *http.Request) []byte) Keyer {
+func hashKeyer(f func(buf *bytes.Buffer, req *http.Request) []byte) Keyer {
 	return KeyerFunc(func(req *http.Request) string {
+		buf := getBuffer()
+		defer putBuffer(buf)
 		hash := md5.New()
-		hash.Write(f(req))
+		hash.Write(f(buf, req))
 		var tmp [md5.Size]byte
 		return hex.EncodeToString(hash.Sum(tmp[:0]))
 	})
 }
 
-func Base64Keyer(f func(req *http.Request) []byte) Keyer {
+func base64Keyer(f func(buf *bytes.Buffer, req *http.Request) []byte) Keyer {
 	return KeyerFunc(func(req *http.Request) string {
-
-		return base64.RawStdEncoding.EncodeToString(f(req))
+		buf := getBuffer()
+		defer putBuffer(buf)
+		return base64.RawStdEncoding.EncodeToString(f(buf, req))
 	})
 }
 
 func BodyKeyer() Keyer {
-	return HashKeyer(func(req *http.Request) []byte {
+	return hashKeyer(func(buf *bytes.Buffer, req *http.Request) []byte {
 		body, _ := io.ReadAll(req.Body)
 		req.Body = io.NopCloser(bytes.NewBuffer(body))
 		return body
@@ -51,9 +54,8 @@ func BodyKeyer() Keyer {
 }
 
 func QueryKeyer(names ...string) Keyer {
-	return Base64Keyer(func(req *http.Request) []byte {
+	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
 		query := req.URL.Query()
-		buf := bytes.NewBuffer(nil)
 		for _, name := range names {
 			values, ok := query[name]
 			if !ok {
@@ -76,9 +78,8 @@ func QueryKeyer(names ...string) Keyer {
 }
 
 func HeaderKeyer(names ...string) Keyer {
-	return Base64Keyer(func(req *http.Request) []byte {
+	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
 		query := req.Header
-		buf := bytes.NewBuffer(nil)
 		for _, name := range names {
 			values, ok := query[name]
 			if !ok {
@@ -101,7 +102,10 @@ func HeaderKeyer(names ...string) Keyer {
 }
 
 func PathKeyer() Keyer {
-	return Base64Keyer(func(req *http.Request) []byte {
+	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
+		if req.URL.Path == "" {
+			return []byte{'/'}
+		}
 		return []byte(req.URL.Path)
 	})
 }
