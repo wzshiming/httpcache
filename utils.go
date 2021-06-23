@@ -137,12 +137,17 @@ func (r *readerWithClose) Close() error {
 }
 
 type autoCloser struct {
-	auto io.ReadCloser
+	auto    io.ReadCloser
+	isClose bool
 }
 
 func (a *autoCloser) Read(p []byte) (int, error) {
+	if a.isClose {
+		return 0, io.EOF
+	}
 	n, err := a.auto.Read(p)
 	if err == io.EOF {
+		a.isClose = true
 		a.auto.Close()
 	}
 	return n, err
