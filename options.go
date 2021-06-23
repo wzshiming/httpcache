@@ -20,7 +20,7 @@ func (o *option) init(options []Option) {
 		option(o)
 	}
 	if o.keyer == nil {
-		o.keyer = PathKeyer()
+		o.keyer = JointKeyer(HostKeyer(), PathKeyer())
 	}
 	if o.storer == nil {
 		o.storer = MemoryStorer()

@@ -110,6 +110,12 @@ func PathKeyer() Keyer {
 	})
 }
 
+func HostKeyer() Keyer {
+	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
+		return []byte(req.Host)
+	})
+}
+
 func MethodKeyer() Keyer {
 	return KeyerFunc(func(req *http.Request) string {
 		return req.Method
