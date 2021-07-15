@@ -20,7 +20,11 @@ func JointKeyer(keyers ...Keyer) Keyer {
 	return KeyerFunc(func(req *http.Request) string {
 		keys := make([]string, 0, len(keyers))
 		for _, keyer := range keyers {
-			keys = append(keys, keyer.Key(req))
+			key := keyer.Key(req)
+			if key == "" {
+				key = emptyKey
+			}
+			keys = append(keys, key)
 		}
 		return path.Join(keys...)
 	})
@@ -112,7 +116,13 @@ func PathKeyer() Keyer {
 
 func HostKeyer() Keyer {
 	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
-		return []byte(req.Host)
+		if req.Host != "" {
+			return []byte(req.Host)
+		}
+		if req.URL.Host != "" {
+			return []byte(req.URL.Host)
+		}
+		return nil
 	})
 }
 
@@ -125,3 +135,5 @@ func MethodKeyer() Keyer {
 func noKey(req *http.Request) string {
 	return "empty"
 }
+
+const emptyKey = "EMPTY"
