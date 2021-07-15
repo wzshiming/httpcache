@@ -115,14 +115,14 @@ func PathKeyer() Keyer {
 }
 
 func HostKeyer() Keyer {
-	return base64Keyer(func(buf *bytes.Buffer, req *http.Request) []byte {
+	return KeyerFunc(func(req *http.Request) string {
 		if req.Host != "" {
-			return []byte(req.Host)
+			return req.Host
 		}
 		if req.URL.Host != "" {
-			return []byte(req.URL.Host)
+			return req.URL.Host
 		}
-		return nil
+		return ""
 	})
 }
 
