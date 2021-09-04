@@ -10,12 +10,12 @@ import (
 type Handler struct {
 	option
 
-	base http.Handler
+	http.Handler
 }
 
 func NewHandler(base http.Handler, options ...Option) http.Handler {
 	handler := &Handler{
-		base: base,
+		Handler: base,
 	}
 	handler.option.init(options)
 	return handler
@@ -39,7 +39,7 @@ func (h *Handler) unmarshalResponse(rw http.ResponseWriter, r io.Reader) error {
 
 func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if !h.filterer.Filter(r) {
-		h.base.ServeHTTP(rw, r)
+		h.Handler.ServeHTTP(rw, r)
 		return
 	}
 	key := h.keyer.Key(r)
@@ -65,7 +65,7 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		h.base.ServeHTTP(rw, r)
+		h.Handler.ServeHTTP(rw, r)
 		return
 	} else {
 		rmut.Lock()
@@ -77,7 +77,7 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	w := newResponseWriter(rw)
 
-	h.base.ServeHTTP(w, r)
+	h.Handler.ServeHTTP(w, r)
 
 	if buf, ok := h.storer.Put(key); ok {
 		marshalResponse(&w.response, buf)

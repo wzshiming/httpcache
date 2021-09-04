@@ -10,7 +10,7 @@ import (
 type RoundTripper struct {
 	option
 
-	base http.RoundTripper
+	http.RoundTripper
 }
 
 func NewRoundTripper(base http.RoundTripper, options ...Option) http.RoundTripper {
@@ -18,7 +18,7 @@ func NewRoundTripper(base http.RoundTripper, options ...Option) http.RoundTrippe
 		base = http.DefaultTransport
 	}
 	crt := &RoundTripper{
-		base: base,
+		RoundTripper: base,
 	}
 	crt.option.init(options)
 	return crt
@@ -26,7 +26,7 @@ func NewRoundTripper(base http.RoundTripper, options ...Option) http.RoundTrippe
 
 func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if !r.filterer.Filter(req) {
-		return r.base.RoundTrip(req)
+		return r.RoundTripper.RoundTrip(req)
 	}
 	key := r.keyer.Key(req)
 
@@ -51,7 +51,7 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 				return resp, nil
 			}
 		}
-		return r.base.RoundTrip(req)
+		return r.RoundTripper.RoundTrip(req)
 	} else {
 		rmut.Lock()
 		defer func() {
@@ -60,7 +60,7 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		}()
 	}
 
-	resp, err := r.base.RoundTrip(req)
+	resp, err := r.RoundTripper.RoundTrip(req)
 	if err != nil {
 		return resp, err
 	}
