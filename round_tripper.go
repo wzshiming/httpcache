@@ -65,6 +65,10 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, err
 	}
 
+	if r.discarder.Discard(response{resp}) {
+		return resp, err
+	}
+
 	buffer := getBuffer()
 	_, err = buffer.ReadFrom(resp.Body)
 	if err != nil {
@@ -86,4 +90,16 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		},
 	}
 	return resp, nil
+}
+
+type response struct {
+	*http.Response
+}
+
+func (w response) Header() http.Header {
+	return w.Response.Header
+}
+
+func (w response) StatusCode() int {
+	return w.Response.StatusCode
 }

@@ -78,6 +78,9 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	w := newResponseWriter(rw)
 
 	h.Handler.ServeHTTP(w, r)
+	if h.discarder.Discard(w) {
+		return
+	}
 
 	if buf, ok := h.storer.Put(key); ok {
 		marshalResponse(&w.response, buf)
@@ -117,4 +120,8 @@ func (r *responseWriter) Header() http.Header {
 func (r *responseWriter) WriteHeader(statusCode int) {
 	r.responseWriter.WriteHeader(statusCode)
 	r.response.StatusCode = statusCode
+}
+
+func (r *responseWriter) StatusCode() int {
+	return r.response.StatusCode
 }

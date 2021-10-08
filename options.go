@@ -8,9 +8,10 @@ import (
 type Option func(c *option)
 
 type option struct {
-	filterer Filterer
-	keyer    Keyer
-	storer   Storer
+	filterer  Filterer
+	discarder Discarder
+	keyer     Keyer
+	storer    Storer
 
 	muts sync.Map
 }
@@ -27,6 +28,9 @@ func (o *option) init(options []Option) {
 	}
 	if o.filterer == nil {
 		o.filterer = MethodFilterer(http.MethodGet)
+	}
+	if o.discarder == nil {
+		o.discarder = NormalDiscarder()
 	}
 }
 
@@ -45,5 +49,11 @@ func WithKeyer(keyer Keyer) func(c *option) {
 func WithFilterer(filterer Filterer) func(c *option) {
 	return func(c *option) {
 		c.filterer = filterer
+	}
+}
+
+func WithDiscarder(discarder Discarder) func(c *option) {
+	return func(c *option) {
+		c.discarder = discarder
 	}
 }

@@ -15,6 +15,21 @@ func (f FiltererFunc) Filter(req *http.Request) bool {
 	return f(req)
 }
 
+type Discarder interface {
+	Discard(resp Response) bool
+}
+
+type Response interface {
+	Header() http.Header
+	StatusCode() int
+}
+
+type DiscarderFunc func(resp Response) bool
+
+func (f DiscarderFunc) Discard(resp Response) bool {
+	return f(resp)
+}
+
 type Keyer interface {
 	Key(req *http.Request) string
 }
