@@ -27,7 +27,7 @@ func (o *option) init(options []Option) {
 		o.storer = MemoryStorer()
 	}
 	if o.filterer == nil {
-		o.filterer = MethodFilterer(http.MethodGet)
+		o.filterer = MethodFilterer(http.MethodHead, http.MethodGet)
 	}
 	if o.discarder == nil {
 		o.discarder = NormalDiscarder()

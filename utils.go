@@ -141,6 +141,11 @@ type autoCloser struct {
 	isClose bool
 }
 
+func (a *autoCloser) Close() error {
+	a.isClose = true
+	return a.auto.Close()
+}
+
 func (a *autoCloser) Read(p []byte) (int, error) {
 	if a.isClose {
 		return 0, io.EOF

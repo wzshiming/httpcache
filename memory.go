@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-func MemoryStorer() *Memory {
+func MemoryStorer() Storer {
 	return &Memory{}
 }
 
@@ -14,12 +14,12 @@ type Memory struct {
 	m sync.Map
 }
 
-func (m *Memory) Get(key string) (io.Reader, bool) {
+func (m *Memory) Get(key string) (io.ReadCloser, bool) {
 	val, ok := m.m.Load(key)
 	if !ok {
 		return nil, false
 	}
-	return bytes.NewBuffer(val.(*bytes.Buffer).Bytes()), true
+	return io.NopCloser(bytes.NewBuffer(val.(*bytes.Buffer).Bytes())), true
 }
 
 func (m *Memory) Put(key string) (io.WriteCloser, bool) {
@@ -36,9 +36,10 @@ func (m *Memory) Put(key string) (io.WriteCloser, bool) {
 	}, true
 }
 
-func (m *Memory) Del(key string) {
+func (m *Memory) Del(key string) bool {
 	val, ok := m.m.LoadAndDelete(key)
 	if ok {
 		putBuffer(val.(*bytes.Buffer))
 	}
+	return true
 }

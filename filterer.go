@@ -39,9 +39,14 @@ func OrJointFilterer(filterers ...Filterer) Filterer {
 	})
 }
 
-func MethodFilterer(m string) Filterer {
+func MethodFilterer(ms ...string) Filterer {
+	methods := map[string]struct{}{}
+	for _, m := range ms {
+		methods[m] = struct{}{}
+	}
 	return FiltererFunc(func(req *http.Request) bool {
-		return req.Method == m
+		_, ok := methods[req.Method]
+		return ok
 	})
 }
 

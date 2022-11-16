@@ -32,8 +32,11 @@ func (h *Handler) unmarshalResponse(rw http.ResponseWriter, r io.Reader) error {
 	}
 	rw.WriteHeader(resp.StatusCode)
 	buf := getBytes()
-	io.CopyBuffer(rw, resp.Body, buf)
-	putBytes(buf)
+	defer putBytes(buf)
+	_, err = io.CopyBuffer(rw, resp.Body, buf)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -48,8 +51,10 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if ok {
 		err := h.unmarshalResponse(rw, data)
 		if err == nil {
+			data.Close()
 			return
 		}
+		data.Close()
 	}
 
 	var mutex sync.RWMutex
@@ -62,18 +67,20 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		if ok {
 			err := h.unmarshalResponse(rw, data)
 			if err == nil {
+				data.Close()
 				return
 			}
+			data.Close()
 		}
 		h.Handler.ServeHTTP(rw, r)
 		return
-	} else {
-		rmut.Lock()
-		defer func() {
-			rmut.Unlock()
-			h.muts.Delete(key)
-		}()
 	}
+
+	rmut.Lock()
+	defer func() {
+		rmut.Unlock()
+		h.muts.Delete(key)
+	}()
 
 	w := newResponseWriter(rw)
 
@@ -83,8 +90,11 @@ func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if buf, ok := h.storer.Put(key); ok {
-		marshalResponse(&w.response, buf)
+		err := marshalResponse(&w.response, buf)
 		buf.Close()
+		if err != nil {
+			h.storer.Del(key)
+		}
 	}
 }
 

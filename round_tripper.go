@@ -34,8 +34,10 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if ok {
 		resp, err := unmarshalResponse(data)
 		if err == nil {
+			data.Close()
 			return resp, nil
 		}
+		data.Close()
 	}
 
 	var mutex sync.RWMutex
@@ -48,17 +50,19 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		if ok {
 			resp, err := unmarshalResponse(data)
 			if err == nil {
+				data.Close()
 				return resp, nil
 			}
+			data.Close()
 		}
 		return r.RoundTripper.RoundTrip(req)
-	} else {
-		rmut.Lock()
-		defer func() {
-			rmut.Unlock()
-			r.muts.Delete(key)
-		}()
 	}
+
+	rmut.Lock()
+	defer func() {
+		rmut.Unlock()
+		r.muts.Delete(key)
+	}()
 
 	resp, err := r.RoundTripper.RoundTrip(req)
 	if err != nil {
@@ -81,6 +85,9 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		resp.Body = io.NopCloser(bytes.NewBuffer(buffer.Bytes()))
 		err = marshalResponse(resp, buf)
 		buf.Close()
+		if err != nil {
+			r.storer.Del(key)
+		}
 	}
 	resp.Body = &readerWithClose{
 		Reader: buffer,

@@ -41,7 +41,7 @@ func (k KeyerFunc) Key(req *http.Request) string {
 }
 
 type Storer interface {
-	Get(key string) (io.Reader, bool)
+	Get(key string) (io.ReadCloser, bool)
 	Put(key string) (io.WriteCloser, bool)
-	Del(key string)
+	Del(key string) bool
 }
