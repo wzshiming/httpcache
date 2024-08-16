@@ -31,6 +31,9 @@ func TestRoundTripper(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if int(resp.ContentLength) != len(body) {
+			t.Fatalf("want %d, got %d", resp.ContentLength, len(body))
+		}
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusAccepted {
 			t.Fatalf("want %q, got %q", http.StatusAccepted, resp.StatusCode)

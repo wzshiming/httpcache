@@ -21,7 +21,7 @@ func NewHandler(base http.Handler, options ...Option) http.Handler {
 	return handler
 }
 
-func (h *Handler) unmarshalResponse(rw http.ResponseWriter, r io.Reader) error {
+func (h *Handler) unmarshalResponse(rw http.ResponseWriter, r io.ReadCloser) error {
 	resp, err := unmarshalResponse(r)
 	if err != nil {
 		return err

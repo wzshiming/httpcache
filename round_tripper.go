@@ -34,7 +34,6 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if ok {
 		resp, err := unmarshalResponse(data)
 		if err == nil {
-			data.Close()
 			return resp, nil
 		}
 		data.Close()
@@ -50,7 +49,6 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 		if ok {
 			resp, err := unmarshalResponse(data)
 			if err == nil {
-				data.Close()
 				return resp, nil
 			}
 			data.Close()

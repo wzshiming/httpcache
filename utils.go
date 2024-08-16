@@ -16,10 +16,15 @@ func marshalResponse(resp *http.Response, w io.Writer) error {
 	return resp.Write(w)
 }
 
-func unmarshalResponse(r io.Reader) (*http.Response, error) {
+func unmarshalResponse(r io.ReadCloser) (resp *http.Response, retErr error) {
 	br := getReader(r)
 	tp := textproto.NewReader(br)
-	resp := &http.Response{}
+	resp = &http.Response{}
+	defer func() {
+		if retErr != nil {
+			r.Close()
+		}
+	}()
 
 	// Parse the first line of the response.
 	line, err := tp.ReadLine()
@@ -60,11 +65,19 @@ func unmarshalResponse(r io.Reader) (*http.Response, error) {
 		return nil, err
 	}
 	resp.Header = http.Header(mimeHeader)
+	contentLength := resp.Header.Get("Content-Length")
+	if contentLength != "" {
+		resp.ContentLength, err = strconv.ParseInt(contentLength, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("malformed HTTP Content-Length %s", contentLength)
+		}
+	}
+
 	resp.Body = &readerWithClose{
 		Reader: br,
 		close: func() error {
 			putReader(br)
-			return nil
+			return r.Close()
 		},
 	}
 	return resp, nil
