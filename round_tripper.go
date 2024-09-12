@@ -1,8 +1,7 @@
 package httpcache
 
 import (
-	"bytes"
-	"io"
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -68,33 +67,26 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	if r.discarder.Discard(response{resp}) {
-		return resp, err
+		return resp, nil
 	}
 
-	buffer := getBuffer()
-	_, err = buffer.ReadFrom(resp.Body)
-	if err != nil {
-		putBuffer(buffer)
-		return resp, err
+	buf, ok := r.storer.Put(key)
+	if !ok {
+		return resp, nil
 	}
+
+	err = marshalResponse(resp, buf)
+	buf.Close()
 	resp.Body.Close()
+	if err != nil {
+		r.storer.Del(key)
+	}
 
-	if buf, ok := r.storer.Put(key); ok {
-		resp.Body = io.NopCloser(bytes.NewBuffer(buffer.Bytes()))
-		err = marshalResponse(resp, buf)
-		buf.Close()
-		if err != nil {
-			r.storer.Del(key)
-		}
+	data, ok = r.storer.Get(key)
+	if !ok {
+		return resp, fmt.Errorf("failed to cache data: %q", key)
 	}
-	resp.Body = &readerWithClose{
-		Reader: buffer,
-		close: func() error {
-			putBuffer(buffer)
-			return nil
-		},
-	}
-	return resp, nil
+	return unmarshalResponse(data)
 }
 
 type response struct {
